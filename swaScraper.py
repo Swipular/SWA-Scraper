@@ -12,7 +12,6 @@ def correct_date(date):
     SWA form cannot accept slashes for dates and is in the format YYYY-MM-DD
     :param date: Date string to correct
     :return: Corrected date string
-
     """
 
     if date is None:
@@ -78,7 +77,10 @@ def direct_load(args, browser):
     commandString += ("destinationAirportCode=%s&" % args.arrive)
 
     # How is the fare to be paid, USD or POINTS
-    commandString += "fareType=USD&"
+    if args.points and int(args.points) > 0:
+        commandString += "fareType=POINTS&"
+    else:
+        commandString += "fareType=USD&"
 
     # Set the departing airport.
     commandString += ("originationAirportCode=%s&" % args.depart)
@@ -130,13 +132,20 @@ def scrape(args):
     If we find a flight that meets our search parameters, send an SMS message.
     Otherwise, keep scraping the website and look for a better deal.
     """
+    # Set variables for points vs dollars
+    if args.points:
+        searchClass = "currency_points"
+        replaceChar = ","
+    else:
+        searchClass = "currency_dollars"
+        replaceChar = "$"
+
     # Tell ChromeDriver to be headless, so it doesn't open up a browser.
     options = webdriver.ChromeOptions()
     options.add_argument('headless')
     options.add_argument('log-level=3')
 
     while True:
-
         browser = webdriver.Chrome(chrome_options=options)
 
         direct_load(args, browser)
@@ -150,7 +159,7 @@ def scrape(args):
         try:
             # Webdriver might be too fast. Tell it to slow down.
             wait = WebDriverWait(browser, 120)
-            wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "currency_dollars")))
+            wait.until(EC.element_to_be_clickable((By.CLASS_NAME, searchClass)))
             print("[%s] Results loaded." % (
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
         except TimeoutError:
@@ -162,38 +171,40 @@ def scrape(args):
         else:
             outbound_fares = browser.find_elements_by_tag_name("ul")[2]
 
-        outbound_prices = outbound_fares.find_elements_by_class_name("currency_dollars")
+        if args.flightnum:
+            # Get the li which contains the flight number.
+            xpath = '//button[contains(@class,\'flight-number\') and contains(.,"{0}")]/ancestor::*[self::li][1]'.format(
+                args.flightnum)
+            desiredLI = browser.find_element_by_xpath(xpath)
+            outbound_prices = desiredLI.find_elements_by_class_name(searchClass)
+        else:
+            outbound_prices = outbound_fares.find_elements_by_class_name(searchClass)
 
         for price in outbound_prices:
-            realprice = price.text.replace("$", "")
+            realprice = price.text.replace(replaceChar, "")
             outbound_array.append(int(realprice))
 
         lowest_outbound_fare = min(outbound_array)
 
+        print("[%s] Current Lowest Outbound Fare: %s." % (
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            str(lowest_outbound_fare)))
+
         if not args.one_way:
             return_fares = browser.find_elements_by_tag_name("ul")[5]
-            return_prices = return_fares.find_elements_by_class_name("currency_dollars")
-
+            return_prices = return_fares.find_elements_by_class_name(searchClass)
             for price in return_prices:
-                realprice = price.text.replace("$", "")
+                realprice = price.text.replace(replaceChar,"")
                 return_array.append(int(realprice))
 
             lowest_return_fare = min(return_array)
             real_total = lowest_outbound_fare + lowest_return_fare
 
-            print("[%s] Current Lowest Outbound Fare: $%s." % (
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                str(lowest_outbound_fare)))
-
-            print("[%s] Current Lowest Return Fare: $%s." % (
+            print("[%s] Current Lowest Return Fare: %s." % (
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 str(lowest_return_fare)))
-
         else:
             real_total = lowest_outbound_fare
-            print("[%s] Current Lowest Outbound Fare: $%s." % (
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                str(lowest_outbound_fare)))
 
         # Found a good deal. Send a text via Twilio and then stop running.
         if real_total <= args.max_price:
@@ -202,9 +213,12 @@ def scrape(args):
         print(
             '''
             [%s] Couldn\'t find a deal under the amount you specified.
-            Trying again to find cheaper prices...
             ''' % (datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         )
 
         # Keep scraping according to the interval the user specified.
-        time.sleep(int(args.interval) * 60)
+        if args.interval:
+            print("Trying again to find cheaper prices...")
+            time.sleep(int(args.interval) * 60)
+        else:
+            break

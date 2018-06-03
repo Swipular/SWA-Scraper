@@ -41,6 +41,12 @@ def parse():
         help="Date of departure flight.")
     
     parser.add_argument(
+        "--flightnum",
+        "-fn",
+        type=str,
+        help="Specific flight number to check if desired")
+
+    parser.add_argument(
         "--departure-time",
         "-dt",
         type=str,
@@ -68,6 +74,12 @@ def parse():
         help="Number of passengers (who are not seniors).")
 
     parser.add_argument(
+        "--points",
+        "-pt",
+        action="store_true",
+        help="If present, search by points instead of dollars.")
+
+    parser.add_argument(
         "--seniors",
         "-s",
         action="store",
@@ -79,15 +91,13 @@ def parse():
         "-m",
         type=int,
         required=True,
-        help="The total fare for one person should be under this amount (in dollars).")
+        help="The total fare for one person should be under this amount (in dollars or points).")
 
     parser.add_argument(
         "--interval",
         "-i",
         type=int,
-        required=True,
-        default=180,
-        help="How often to scrape the airline's website (in minutes). Default value = 3 hours.")
+        help="How often to scrape the airline's website (in minutes).")
 
     parser.add_argument(
         "--no-text",
