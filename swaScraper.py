@@ -12,7 +12,6 @@ def correct_date(date):
     SWA form cannot accept slashes for dates and is in the format YYYY-MM-DD
     :param date: Date string to correct
     :return: Corrected date string
-
     """
 
     if date is None:
@@ -147,7 +146,6 @@ def scrape(args):
     options.add_argument('log-level=3')
 
     while True:
-
         browser = webdriver.Chrome(chrome_options=options)
 
         direct_load(args, browser)
@@ -168,21 +166,29 @@ def scrape(args):
             print("[%s] Results took too long!" % (
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
 
-        if args.flightnum:
-            # find li which flight number exists
-            xpath = '//button[contains(@class,\'flight-number\') and contains(.,"{0}")]/ancestor::*[self::li][1]'.format(args.flightnum)
-            outbound_fares = browser.find_element_by_xpath(xpath)
+        if args.seniors:
+            outbound_fares = browser.find_elements_by_tag_name("ul")[1]
         else:
             outbound_fares = browser.find_elements_by_tag_name("ul")[2]
 
-        # find currency_dollars or currency_points and collect each price
-        outbound_prices = outbound_fares.find_elements_by_class_name(searchClass)
+        if args.flightnum:
+            # Get the li which contains the flight number.
+            xpath = '//button[contains(@class,\'flight-number\') and contains(.,"{0}")]/ancestor::*[self::li][1]'.format(
+                args.flightnum)
+            desiredLI = browser.find_element_by_xpath(xpath)
+            outbound_prices = desiredLI.find_elements_by_class_name(searchClass)
+        else:
+            outbound_prices = outbound_fares.find_elements_by_class_name(searchClass)
+
         for price in outbound_prices:
             realprice = price.text.replace(replaceChar, "")
             outbound_array.append(int(realprice))
 
-
         lowest_outbound_fare = min(outbound_array)
+
+        print("[%s] Current Lowest Outbound Fare: %s." % (
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            str(lowest_outbound_fare)))
 
         if not args.one_way:
             return_fares = browser.find_elements_by_tag_name("ul")[5]
@@ -194,19 +200,11 @@ def scrape(args):
             lowest_return_fare = min(return_array)
             real_total = lowest_outbound_fare + lowest_return_fare
 
-            print("[%s] Current Lowest Outbound Fare: %s." % (
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                str(lowest_outbound_fare)))
-
             print("[%s] Current Lowest Return Fare: %s." % (
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 str(lowest_return_fare)))
-
         else:
             real_total = lowest_outbound_fare
-            print("[%s] Current Lowest Outbound Fare: %s." % (
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                str(lowest_outbound_fare)))
 
         # Found a good deal. Send a text via Twilio and then stop running.
         if real_total <= args.max_price:

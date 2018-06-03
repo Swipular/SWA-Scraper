@@ -42,9 +42,9 @@ Scrapes airline websites according to the interval you set. For best results whe
 
 `--max-price, -m [dollars] # The total fare for one person should be under this amount (in dollars or points). Default is dollars.`
 
-`--points, -p [points] # Optional. Search for max-price in points instead of dollars. 
+`--points, -p [points] # Optional. Search for max-price in points instead of dollars.`
 
-`--flightnum, -fn [flight number] # Optional. Search for a lower price on a specific outbound flight. Enter numerical only.
+`--flightnum, -fn [flight number] # Optional. Search for a lower price on a specific outbound flight. Enter numerical only.`
 
 `--interval, -i [minutes] # Optional. How often to scrape the airline's website (in minutes).`
 
