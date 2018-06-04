@@ -191,7 +191,10 @@ def scrape(args):
             str(lowest_outbound_fare)))
 
         if not args.one_way:
-            return_fares = browser.find_elements_by_tag_name("ul")[5]
+            if args.seniors:
+                return_fares = browser.find_elements_by_tag_name("ul")[3]
+            else:
+                return_fares = browser.find_elements_by_tag_name("ul")[5]
             return_prices = return_fares.find_elements_by_class_name(searchClass)
             for price in return_prices:
                 realprice = price.text.replace(replaceChar,"")
